@@ -24,10 +24,10 @@ require (
 )
 
 require (
-        github.com/teacat/noire v1.1.0
-        github.com/cenkalti/dominantcolor v1.0.3
-        go.n16f.net/thumbhash v1.1.0
-        github.com/xyxu/goimagehash v0.0.0-20251031040047-7676f91cd0a3
+	github.com/cenkalti/dominantcolor v1.0.3
+	github.com/teacat/noire v1.1.0
+	github.com/xyxu/goimagehash v0.0.0-20251031040047-7676f91cd0a3
+	go.n16f.net/thumbhash v1.1.0
 )
 
 require (
@@ -73,6 +73,7 @@ require (
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/pkg/xattr v0.4.12 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

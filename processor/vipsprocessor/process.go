@@ -11,6 +11,15 @@ import (
 	"github.com/cshum/imagor/imagorpath"
 	"github.com/cshum/vipsgen/vips"
 	"go.uber.org/zap"
+
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"github.com/cenkalti/dominantcolor"
+	"github.com/teacat/noire"
+	"github.com/xyxu/goimagehash"
+	"go.n16f.net/thumbhash"
+	"image/jpeg"
 )
 
 var imageTypeMap = map[string]vips.ImageType{
@@ -536,14 +545,27 @@ func (v *Processor) process(
 
 // Metadata image attributes
 type Metadata struct {
-	Format      string            `json:"format"`
-	ContentType string            `json:"content_type"`
-	Width       int               `json:"width"`
-	Height      int               `json:"height"`
-	Orientation int               `json:"orientation"`
-	Pages       int               `json:"pages"`
-	Bands       int               `json:"bands"`
-	Exif        map[string]string `json:"exif"`
+	Format         string            `json:"format"`
+	ContentType    string            `json:"content_type"`
+	Width          int               `json:"width"`
+	Height         int               `json:"height"`
+	Orientation    int               `json:"orientation"`
+	Pages          int               `json:"pages"`
+	Bands          int               `json:"bands"`
+	Exif           map[string]string `json:"exif"`
+	Thumbhash      string            `json:"thumbhash"`
+	Phash          string            `json:"phash"`
+	Whash          string            `json:"whash"`
+	DominantDark   bool              `json:"dominant_dark"`
+	DominantColor  string            `json:"dominant_color"`
+	DominantColors []DominantColor   `json:"dominant_colors"`
+	FocusPoint     []float32         `json:"focuspoint"`
+}
+
+type DominantColor struct {
+	Hex    string `json:"hex"`
+	Dark   bool   `json:"dark"`
+	Weight string `json:"weight"`
 }
 
 func metadata(img *vips.Image, format vips.ImageType, stripExif bool) *Metadata {
@@ -559,15 +581,83 @@ func metadata(img *vips.Image, format vips.ImageType, stripExif bool) *Metadata 
 		exif = extractExif(img.Exif())
 	}
 	mimeType, _ := format.MimeType()
+
+	// to jpeg
+	imgByte, _ := img.JpegsaveBuffer(nil)
+
+	// thumbhash
+	imgReader, _ := jpeg.Decode(bytes.NewReader(imgByte))
+	hash := thumbhash.EncodeImage(imgReader)
+	hashBase64 := base64.StdEncoding.EncodeToString(hash)
+
+	// phash
+	phash, _ := goimagehash.PerceptionHash(imgReader)
+	phashStr := strings.Split(phash.ToString(), ":")[1]
+
+	whash, _ := goimagehash.WaveletHash(imgReader)
+	whashStr := strings.Split(whash.ToString(), ":")[1]
+
+	// dominantColor
+	dominantColor := dominantcolor.Find(imgReader)
+	noireDominantColor := noire.NewRGBA(float64(dominantColor.R), float64(dominantColor.G), float64(dominantColor.B),
+		float64(dominantColor.A))
+	hexDominantColor := strings.ToLower(noireDominantColor.Hex())
+	dominantColorDark := noireDominantColor.IsDark()
+
+	// dominantColors with weight
+	dominantColors := []DominantColor{}
+	rgbaColors := dominantcolor.FindWeight(imgReader, 6)
+	for _, col := range rgbaColors {
+		c := col.RGBA
+
+		// light/dark
+		isDark := false
+		noireColor := noire.NewRGBA(float64(c.R), float64(c.G), float64(c.B), float64(c.A))
+		if noireColor.IsDark() {
+			isDark = true
+		}
+
+		weight := fmt.Sprintf("%.2f", col.Weight*100)
+		dominantColors = append(dominantColors, DominantColor{
+			Hex:    strings.ToLower(noireColor.Hex()),
+			Dark:   isDark,
+			Weight: weight,
+		})
+	}
+
+	// smartcrop
+	w := 100
+	h := int(w * img.PageHeight() / img.Width())
+	imgSmart, _ := img.Copy(nil)
+	smartOptions := &vips.SmartcropOptions{
+		Interesting: vips.InterestingAttention,
+	}
+	imgSmart.Smartcrop(w, h, smartOptions)
+	imgSmart.Close()
+
+	// focuspoint
+	focusPoint := make([]float32, 4)
+	focusPoint[0] = float32(smartOptions.AttentionX)
+	focusPoint[1] = float32(smartOptions.AttentionY)
+	focusPoint[2] = float32(smartOptions.AttentionX) / float32(img.Width())
+	focusPoint[3] = float32(smartOptions.AttentionY) / float32(img.PageHeight())
+
 	return &Metadata{
-		Format:      string(format),
-		ContentType: mimeType,
-		Width:       img.Width(),
-		Height:      img.PageHeight(),
-		Pages:       pages,
-		Bands:       img.Bands(),
-		Orientation: img.Orientation(),
-		Exif:        exif,
+		Format:         string(format),
+		ContentType:    mimeType,
+		Width:          img.Width(),
+		Height:         img.PageHeight(),
+		Pages:          pages,
+		Bands:          img.Bands(),
+		Orientation:    img.Orientation(),
+		Exif:           exif,
+		Thumbhash:      hashBase64,
+		Phash:          phashStr,
+		Whash:          whashStr,
+		DominantDark:   dominantColorDark,
+		DominantColor:  hexDominantColor,
+		DominantColors: dominantColors,
+		FocusPoint:     focusPoint,
 	}
 }
 

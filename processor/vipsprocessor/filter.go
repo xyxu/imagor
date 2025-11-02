@@ -16,9 +16,9 @@ import (
 	"github.com/cshum/imagor/imagorpath"
 	"golang.org/x/image/colornames"
 
-       "bytes"
-       "image/png"
-       "go.n16f.net/thumbhash"
+	"bytes"
+	"go.n16f.net/thumbhash"
+	"image/png"
 )
 
 func (v *Processor) watermark(ctx context.Context, img *vips.Image, load imagor.LoadFunc, args ...string) (err error) {
@@ -281,8 +281,8 @@ func roundCorner(ctx context.Context, img *vips.Image, _ imagor.LoadFunc, args .
 	var h = img.PageHeight()
 	if rounded, err = vips.NewSvgloadBuffer([]byte(fmt.Sprintf(`
 		<svg viewBox="0 0 %d %d">
-			<rect rx="%d" ry="%d" 
-			 x="0" y="0" width="%d" height="%d" 
+			<rect rx="%d" ry="%d"
+			 x="0" y="0" width="%d" height="%d"
 			 fill="#fff"/>
 		</svg>
 	`, w, h, rx, ry, w, h)), nil); err != nil {
@@ -627,31 +627,30 @@ func trim(ctx context.Context, img *vips.Image, _ imagor.LoadFunc, args ...strin
 	return nil
 }
 
-func holder(_ context.Context, img *Image, _ imagor.LoadFunc, args ...string) (err error) {
-       // to png
-       imgByte, _ := img.ExportPng(nil)
+func holder(_ context.Context, img *vips.Image, _ imagor.LoadFunc, args ...string) (err error) {
+	// to png
+	imgByte, _ := img.PngsaveBuffer(nil)
 
-       // thumbhash
-       imgReader, _ := png.Decode(bytes.NewReader(imgByte))
-       hash := thumbhash.EncodeImage(imgReader)
+	// thumbhash
+	imgReader, _ := png.Decode(bytes.NewReader(imgByte))
+	hash := thumbhash.EncodeImage(imgReader)
 
-       var cfg thumbhash.DecodingCfg
-       ln := len(args)
-       if ln > 0 {
-               baseSize, _ := strconv.Atoi(args[0])
-               if baseSize < 32 {
-                       baseSize = 32
-               }
-               cfg.BaseSize = baseSize
-       }
-       imgDecode, err := thumbhash.DecodeImageWithCfg(hash, cfg)
-       buf := new(bytes.Buffer)
-       err = png.Encode(buf, imgDecode)
+	var cfg thumbhash.DecodingCfg
+	ln := len(args)
+	if ln > 0 {
+		baseSize, _ := strconv.Atoi(args[0])
+		if baseSize < 32 {
+			baseSize = 32
+		}
+		cfg.BaseSize = baseSize
+	}
+	imgDecode, err := thumbhash.DecodeImageWithCfg(hash, cfg)
+	buf := new(bytes.Buffer)
+	err = png.Encode(buf, imgDecode)
 
-       refImg, _, err := vipsImageFromBuffer(buf.Bytes(), nil)
-       img.setImage(refImg)
+	img, err = vips.NewImageFromBuffer(buf.Bytes(), nil)
 
-       return err
+	return err
 }
 
 func linearRGB(img *vips.Image, a, b []float64) error {
