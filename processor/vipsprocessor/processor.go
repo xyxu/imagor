@@ -79,6 +79,7 @@ func NewProcessor(options ...Option) *Processor {
 		"padding":          v.padding,
 		"proportion":       proportion,
 		"crop":             crop,
+		"holder":           holder,
 	}
 	for _, option := range options {
 		option(v)
