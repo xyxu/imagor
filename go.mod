@@ -24,6 +24,13 @@ require (
 )
 
 require (
+        github.com/teacat/noire v1.1.0
+        github.com/cenkalti/dominantcolor v1.0.3
+        go.n16f.net/thumbhash v1.1.0
+        github.com/xyxu/goimagehash v0.0.0-20251031040047-7676f91cd0a3
+)
+
+require (
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/auth v0.17.0 // indirect

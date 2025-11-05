@@ -15,6 +15,10 @@ import (
 	"github.com/cshum/imagor"
 	"github.com/cshum/imagor/imagorpath"
 	"golang.org/x/image/colornames"
+
+       "bytes"
+       "image/png"
+       "go.n16f.net/thumbhash"
 )
 
 func (v *Processor) watermark(ctx context.Context, img *vips.Image, load imagor.LoadFunc, args ...string) (err error) {
@@ -621,6 +625,33 @@ func trim(ctx context.Context, img *vips.Image, _ imagor.LoadFunc, args ...strin
 		return img.ExtractAreaMultiPage(l, t, w, h)
 	}
 	return nil
+}
+
+func holder(_ context.Context, img *Image, _ imagor.LoadFunc, args ...string) (err error) {
+       // to png
+       imgByte, _ := img.ExportPng(nil)
+
+       // thumbhash
+       imgReader, _ := png.Decode(bytes.NewReader(imgByte))
+       hash := thumbhash.EncodeImage(imgReader)
+
+       var cfg thumbhash.DecodingCfg
+       ln := len(args)
+       if ln > 0 {
+               baseSize, _ := strconv.Atoi(args[0])
+               if baseSize < 32 {
+                       baseSize = 32
+               }
+               cfg.BaseSize = baseSize
+       }
+       imgDecode, err := thumbhash.DecodeImageWithCfg(hash, cfg)
+       buf := new(bytes.Buffer)
+       err = png.Encode(buf, imgDecode)
+
+       refImg, _, err := vipsImageFromBuffer(buf.Bytes(), nil)
+       img.setImage(refImg)
+
+       return err
 }
 
 func linearRGB(img *vips.Image, a, b []float64) error {
